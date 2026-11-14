@@ -7,7 +7,14 @@ import '../../../../core/theme/app_typography.dart';
 import '../../providers/audit_provider.dart';
 
 class AuditSkeletonLoader extends ConsumerStatefulWidget {
-  const AuditSkeletonLoader({super.key});
+  final bool shrinkWrap;
+  final ScrollPhysics? physics;
+
+  const AuditSkeletonLoader({
+    super.key,
+    this.shrinkWrap = false,
+    this.physics,
+  });
 
   @override
   ConsumerState<AuditSkeletonLoader> createState() =>
@@ -53,6 +60,8 @@ class _AuditSkeletonLoaderState extends ConsumerState<AuditSkeletonLoader>
         )!;
 
         return ListView(
+          shrinkWrap: widget.shrinkWrap,
+          physics: widget.physics,
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             // Banner Notice (live retry wait status or standard audit banner)

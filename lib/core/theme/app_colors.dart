@@ -55,4 +55,32 @@ class AppColors {
   // Brand Accent
   static const Color brandAccent = Color(0xFF6366F1);
   static const Color brandAccentDark = Color(0xFF4F46E5);
+
+  // Dynamic theme resolution helpers
+  static bool isDark(BuildContext context) {
+    final theme = Theme.of(context);
+    if (theme.brightness == Brightness.dark) return true;
+    return theme.scaffoldBackgroundColor != surfaceBackgroundLight;
+  }
+
+  static Color surfaceBackgroundOf(BuildContext context) =>
+      isDark(context) ? background : surfaceBackgroundLight;
+
+  static Color surfaceCardOf(BuildContext context) =>
+      isDark(context) ? surfaceCard : surfacePrimaryLight;
+
+  static Color surfaceElevateOf(BuildContext context) =>
+      isDark(context) ? surfaceElevate : surfaceSecondaryLight;
+
+  static Color borderSubtleOf(BuildContext context) =>
+      isDark(context) ? borderSubtle : borderSubtleLight;
+
+  static Color textPrimaryOf(BuildContext context) =>
+      isDark(context) ? textPrimary : textPrimaryLight;
+
+  static Color textSecondaryOf(BuildContext context) =>
+      isDark(context) ? textSecondary : textSecondaryLight;
+
+  static Color textMutedOf(BuildContext context) =>
+      isDark(context) ? textMuted : const Color(0xFF64748B);
 }

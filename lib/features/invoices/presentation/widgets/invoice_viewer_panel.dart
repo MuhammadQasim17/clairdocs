@@ -267,23 +267,26 @@ class _InvoiceViewerPanelState extends ConsumerState<InvoiceViewerPanel> {
   }) {
     final activeLine = _matchingDemoLine(activeFinding);
 
-    return Container(
-      margin: const EdgeInsets.all(AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 12,
-            offset: Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compactPhone;
+        return Container(
+          margin: EdgeInsets.all(isCompact ? AppSpacing.sm : AppSpacing.md),
+          padding: EdgeInsets.all(isCompact ? AppSpacing.md : AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.borderSubtle),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ListView(
-        children: [
+          child: ListView(
+            children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,8 +498,10 @@ class _InvoiceViewerPanelState extends ConsumerState<InvoiceViewerPanel> {
               ),
             ),
           ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 

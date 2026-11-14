@@ -48,30 +48,15 @@ class TopCommandBar extends ConsumerWidget {
         ? 'Auditing...'
         : (cooldownSeconds > 0 ? 'Wait ${cooldownSeconds}s' : 'Run AI Audit');
 
-    final settingsButton = IconButton(
+    final settingsButton = _buildMobileIconButton(
+      icon: Icons.settings_outlined,
+      tooltip: 'Settings & Credential Store',
       onPressed: () {
         showDialog<void>(
           context: context,
           builder: (_) => const SettingsDialog(),
         );
       },
-      style: IconButton.styleFrom(
-        foregroundColor: Colors.white,
-        backgroundColor: AppColors.surfaceElevate.withValues(alpha: 0.72),
-        side: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.35)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-        ),
-      ),
-      icon: const Icon(
-        Icons.settings_outlined,
-        size: 17,
-        color: Colors.white,
-      ),
-      tooltip: 'Settings & Credential Store',
-      splashRadius: 16,
-      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-      padding: EdgeInsets.zero,
     );
 
     final actionSpecs = <_TopBarActionSpec>[
@@ -101,8 +86,6 @@ class TopCommandBar extends ConsumerWidget {
     ];
 
     return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 4),
       decoration: const BoxDecoration(
         color: AppColors.surfaceCard,
         border: Border(
@@ -111,6 +94,8 @@ class TopCommandBar extends ConsumerWidget {
       ),
       child: LayoutBuilder(
         builder: (context, barConstraints) {
+          final isPhoneBar =
+              barConstraints.maxWidth < AppBreakpoints.compactPhone;
           final isTightBar = barConstraints.maxWidth < 1040;
           final isCompactButtons = barConstraints.maxWidth < 960;
           final pinVaultIntrinsic = barConstraints.maxWidth >= 600;
@@ -120,6 +105,44 @@ class TopCommandBar extends ConsumerWidget {
           final iconSize = isCompactButtons ? 13.0 : 14.0;
           final iconGap = isCompactButtons ? 3.0 : 5.0;
           final labelFontSize = isCompactButtons ? 11.0 : 12.0;
+
+          final brandBadge = Container(
+            padding: const EdgeInsets.fromLTRB(4, 4, 9, 4),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevate,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: AppColors.brandAccent.withValues(alpha: 0.45),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.brandAccent.withValues(alpha: 0.18),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClairLogoBadge(
+                  size: 22,
+                  borderRadius: 5,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'ClairDocs',
+                  style: TextStyle(
+                    fontFamily: AppTypography.fontFamilySans,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          );
 
           final compactOutlinedStyle = OutlinedButton.styleFrom(
             foregroundColor: AppColors.textPrimary,
@@ -192,50 +215,93 @@ class TopCommandBar extends ConsumerWidget {
             ),
           );
 
+          if (isPhoneBar) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm + 4,
+                vertical: 6,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: brandBadge,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      settingsButton,
+                      for (final spec in actionSpecs) ...[
+                        const SizedBox(width: 4),
+                        _buildMobileIconButton(
+                          icon: spec.icon,
+                          tooltip: spec.label,
+                          onPressed: spec.onPressed,
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      ctaButton,
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Flexible(
+                        flex: 2,
+                        fit: FlexFit.loose,
+                        child: _buildBreadcrumbFileSegment(
+                          name: contractName,
+                          isLoaded: hasContractLoaded,
+                        ),
+                      ),
+                      _buildBreadcrumbChevron(),
+                      Flexible(
+                        flex: 2,
+                        fit: FlexFit.loose,
+                        child: _buildBreadcrumbFileSegment(
+                          name: invoiceName,
+                          isLoaded: hasInvoiceLoaded,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        flex: 3,
+                        fit: FlexFit.loose,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: _buildStatusPill(
+                              auditAsync,
+                              retryStatus,
+                              hasAnyDocument: hasAnyDocument,
+                              allowCompactShrink: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }
+
           final trailWidget = Expanded(
             flex: isTightBar ? 5 : 1,
             child: LayoutBuilder(
               builder: (context, trailConstraints) {
                 final isSpaciousTrail = trailConstraints.maxWidth >= 700;
                 final segmentFlex = isSpaciousTrail ? 1 : 2;
-
-                final brandBadge = Container(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 9, 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceElevate,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
-                      color: AppColors.brandAccent.withValues(alpha: 0.45),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.brandAccent.withValues(alpha: 0.18),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClairLogoBadge(
-                        size: 22,
-                        borderRadius: 5,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        'ClairDocs',
-                        style: TextStyle(
-                          fontFamily: AppTypography.fontFamilySans,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
 
                 final statusWidget = _buildStatusPill(
                   auditAsync,
@@ -343,12 +409,16 @@ class TopCommandBar extends ConsumerWidget {
             ],
           );
 
-          return Row(
-            children: [
-              trailWidget,
-              const SizedBox(width: 8),
-              if (isTightBar) Expanded(flex: 6, child: rightRow) else rightRow,
-            ],
+          return Container(
+            height: 54,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm + 4),
+            child: Row(
+              children: [
+                trailWidget,
+                const SizedBox(width: 8),
+                if (isTightBar) Expanded(flex: 6, child: rightRow) else rightRow,
+              ],
+            ),
           );
         },
       ),
@@ -384,6 +454,35 @@ class TopCommandBar extends ConsumerWidget {
         maxLines: 1,
         softWrap: false,
       ),
+    );
+  }
+
+  Widget _buildMobileIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 17, color: Colors.white),
+      style: IconButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: AppColors.surfaceElevate.withValues(alpha: 0.72),
+        side: BorderSide(
+          color: AppColors.textSecondary.withValues(alpha: 0.35),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        minimumSize: const Size(32, 32),
+        fixedSize: const Size(32, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.zero,
+      ),
+      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+      padding: EdgeInsets.zero,
+      splashRadius: 16,
     );
   }
 

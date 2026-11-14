@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/enterprise_dialog_chrome.dart';
 import '../../providers/audit_provider.dart';
 
 class ApiKeyDialog extends ConsumerStatefulWidget {
@@ -86,6 +87,7 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppColors.surfaceCard,
+      insetPadding: responsiveDialogInsetPadding(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
         side: const BorderSide(color: AppColors.borderSubtle),
@@ -94,15 +96,22 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
         children: [
           Icon(Icons.key_rounded, color: AppColors.emerald, size: 18),
           SizedBox(width: 8),
-          Text('Gemini API Configuration', style: AppTypography.titleMedium),
+          Expanded(
+            child: Text(
+              'Gemini API Configuration',
+              style: AppTypography.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
-      content: SizedBox(
-        width: 440,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Text(
               _hasExistingKey
                   ? 'A Gemini API key is currently active. Enter a new key below to override it in local OS secure storage.'
@@ -149,7 +158,8 @@ class _ApiKeyDialogState extends ConsumerState<ApiKeyDialog> {
                 ),
               ),
             ],
-          ],
+            ],
+          ),
         ),
       ),
       actions: [

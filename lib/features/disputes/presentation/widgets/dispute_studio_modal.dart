@@ -12,7 +12,12 @@ import '../../services/dispute_dispatch_service.dart';
 import 'dispatch_notice_dialog.dart';
 
 class DisputeStudioModal extends ConsumerStatefulWidget {
-  const DisputeStudioModal({super.key});
+  final bool isFullScreen;
+
+  const DisputeStudioModal({
+    super.key,
+    this.isFullScreen = false,
+  });
 
   @override
   ConsumerState<DisputeStudioModal> createState() => _DisputeStudioModalState();
@@ -35,6 +40,16 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
       selection: const TextSelection.collapsed(offset: 0),
     );
     _editorFocusNode.addListener(_handleEditorFocusChange);
+
+    // Automatically generate the initial dispute draft upon opening if empty
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final currentDraft = ref.read(disputeProvider).draftText;
+        if (currentDraft.trim().isEmpty) {
+          ref.read(disputeProvider.notifier).generateDraft();
+        }
+      }
+    });
   }
 
   void _handleEditorFocusChange() {
@@ -132,13 +147,28 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
     }
 
     final currentState = ref.read(disputeProvider);
-    final dispatchResult = await showDialog<DispatchResult>(
-      context: context,
-      builder: (_) => DispatchNoticeDialog(
-        disputeState: currentState,
-        noticeText: _textController.text,
-      ),
-    );
+    final isCompact =
+        MediaQuery.sizeOf(context).width < AppBreakpoints.desktop;
+    final DispatchResult? dispatchResult;
+    if (widget.isFullScreen || isCompact) {
+      dispatchResult = await Navigator.of(context).push<DispatchResult>(
+        MaterialPageRoute(
+          builder: (_) => DispatchNoticeDialog(
+            disputeState: currentState,
+            noticeText: _textController.text,
+            isFullScreen: true,
+          ),
+        ),
+      );
+    } else {
+      dispatchResult = await showDialog<DispatchResult>(
+        context: context,
+        builder: (_) => DispatchNoticeDialog(
+          disputeState: currentState,
+          noticeText: _textController.text,
+        ),
+      );
+    }
     if (!mounted || dispatchResult == null) return;
 
     _showStudioSnackBar(
@@ -201,378 +231,587 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
       currency: disputeState.currency,
     );
 
-    return Dialog(
-      backgroundColor: AppColors.surfaceCard,
-      insetPadding: const EdgeInsets.all(AppSpacing.xl),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        side: const BorderSide(color: AppColors.borderSubtle),
+    final isCompactViewport =
+        MediaQuery.sizeOf(context).width < AppBreakpoints.compactPhone;
+    final isDark = AppColors.isDark(context);
+    final borderColor =
+        isDark ? AppColors.borderSubtle : AppColors.borderSubtleLight;
+
+    final headerWidget = Container(
+      height: widget.isFullScreen ? 52 : null,
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.isFullScreen
+            ? AppSpacing.xs
+            : (isCompactViewport ? AppSpacing.md : AppSpacing.lg),
+        vertical: widget.isFullScreen
+            ? 0
+            : (isCompactViewport ? AppSpacing.sm + 2 : AppSpacing.md),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: 1020,
-          maxHeight: 740,
+      decoration: BoxDecoration(
+        color: widget.isFullScreen
+            ? AppColors.surfaceCardOf(context)
+            : (isDark ? AppColors.surfaceElevate : AppColors.surfaceSecondaryLight),
+        borderRadius: widget.isFullScreen
+            ? BorderRadius.zero
+            : const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+        border: Border(
+          bottom: BorderSide(color: borderColor),
         ),
-        child: ScaffoldMessenger(
-          key: _messengerKey,
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Column(
-              children: [
-            // Dynamic Header Metadata
+      ),
+      child: Row(
+        children: [
+          if (widget.isFullScreen) ...[
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+              tooltip: 'Close Studio',
+              color: AppColors.textPrimaryOf(context),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
+          Container(
+            padding: EdgeInsets.all(widget.isFullScreen ? 7 : 8),
+            decoration: BoxDecoration(
+              color: AppColors.crimsonBg,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(
+                color: AppColors.crimson.withValues(alpha: 0.35),
+              ),
+            ),
+            child: Icon(
+              Icons.gavel_rounded,
+              color: AppColors.crimson,
+              size: widget.isFullScreen ? 16 : 18,
+            ),
+          ),
+          SizedBox(width: widget.isFullScreen ? AppSpacing.sm : AppSpacing.sm + 4),
+          Expanded(
+            child: widget.isFullScreen
+                ? Text(
+                    'Interactive Dispute Studio',
+                    style: AppTypography.titleMedium.copyWith(
+                      color: AppColors.textPrimaryOf(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: AppSpacing.sm,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            'Interactive Dispute Studio',
+                            style: AppTypography.titleMedium.copyWith(
+                              color: AppColors.textPrimaryOf(context),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: disputeState.usedFallback
+                                  ? AppColors.amberBg
+                                  : AppColors.skyBg,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (disputeState.isRefiningWithAi) ...[
+                                  const SizedBox(
+                                    width: 9,
+                                    height: 9,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: AppColors.amber,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    disputeState.isRefiningWithAi
+                                        ? 'TEMPLATE READY • AI REFINING'
+                                        : disputeState.draftEngine,
+                                    style: TextStyle(
+                                      fontFamily:
+                                          AppTypography.fontFamilySans,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: disputeState.usedFallback
+                                          ? AppColors.amber
+                                          : (isDark
+                                              ? AppColors.sky
+                                              : AppColors.brandAccentDark),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.business_outlined,
+                            size: 12,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.textSecondaryLight,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Vendor: ${disputeState.vendorName}',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textPrimaryOf(context),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            '•',
+                            style: TextStyle(
+                                color: AppColors.textPrimaryOf(context)),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Flexible(
+                            child: Text(
+                              'Invoice: ${disputeState.invoiceReference}',
+                              style: AppTypography.monoCitation.copyWith(
+                                color: isDark
+                                    ? AppColors.sky
+                                    : AppColors.brandAccentDark,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+          ),
+          if (!widget.isFullScreen && !isCompactViewport) ...[
+            const SizedBox(width: AppSpacing.md),
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
+                horizontal: 12,
+                vertical: 6,
               ),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceElevate,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppRadius.lg),
-                ),
-                border: Border(
-                  bottom: BorderSide(color: AppColors.borderSubtle),
+              decoration: BoxDecoration(
+                color: AppColors.crimsonBg,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color: AppColors.crimson.withValues(alpha: 0.45),
                 ),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.crimsonBg,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: AppColors.crimson.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.gavel_rounded,
+                  const Text(
+                    'TOTAL WITHHELD',
+                    style: TextStyle(
+                      fontFamily: AppTypography.fontFamilySans,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
                       color: AppColors.crimson,
-                      size: 18,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Interactive Dispute Studio',
-                              style: AppTypography.titleMedium,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: disputeState.usedFallback
-                                      ? AppColors.amberBg
-                                      : AppColors.skyBg,
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.sm),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (disputeState.isRefiningWithAi) ...[
-                                      const SizedBox(
-                                        width: 9,
-                                        height: 9,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 1.5,
-                                          color: AppColors.amber,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 5),
-                                    ],
-                                    Flexible(
-                                      child: Text(
-                                        disputeState.isRefiningWithAi
-                                            ? 'TEMPLATE READY • AI REFINING'
-                                            : disputeState.draftEngine,
-                                        style: TextStyle(
-                                          fontFamily:
-                                              AppTypography.fontFamilySans,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: disputeState.usedFallback
-                                              ? AppColors.amber
-                                              : AppColors.sky,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.business_outlined,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                'Vendor: ${disputeState.vendorName}',
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            const Text(
-                              '•',
-                              style: TextStyle(color: AppColors.textPrimary),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Flexible(
-                              child: Text(
-                                'Invoice: ${disputeState.invoiceReference}',
-                                style: AppTypography.monoCitation,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  Text(
+                    withheldStr,
+                    style: AppTypography.monoMetric.copyWith(
+                      fontSize: 16,
+                      color: AppColors.crimson,
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  // Total Withheld Amount Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.crimsonBg,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: AppColors.crimson.withValues(alpha: 0.45),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'TOTAL WITHHELD',
-                          style: TextStyle(
-                            fontFamily: AppTypography.fontFamilySans,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.crimson,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        Text(
-                          withheldStr,
-                          style: AppTypography.monoMetric.copyWith(
-                            fontSize: 16,
-                            color: AppColors.crimson,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    tooltip: 'Close Studio',
                   ),
                 ],
               ),
             ),
+          ],
+          if (!widget.isFullScreen) ...[
+            const SizedBox(width: AppSpacing.xs),
+            IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded, size: 20),
+              tooltip: 'Close Studio',
+              color: isDark ? Colors.white : AppColors.textSecondaryLight,
+            ),
+          ],
+        ],
+      ),
+    );
 
-            // Top Toolbar Actions (Tone Selector, Regenerate, Copy, Export PDF)
+    final bodyContent = Column(
+      children: [
+        headerWidget,
+
+            // Tone Selector Ribbon (Flexible Wrapping Layout)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: 10,
+                horizontal: AppSpacing.md,
+                vertical: 8,
               ),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceCard,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.surfaceElevate
+                    : AppColors.surfaceSecondaryLight,
                 border: Border(
-                  bottom: BorderSide(color: AppColors.borderSubtle),
+                  bottom: BorderSide(
+                    color: isDark
+                        ? AppColors.borderSubtle
+                        : AppColors.borderSubtleLight,
+                  ),
                 ),
               ),
               child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: AppSpacing.md,
-                runSpacing: AppSpacing.sm,
                 children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(right: 4),
-                        child: Text(
-                          'TONE:',
-                          style: AppTypography.labelMicro,
-                        ),
-                      ),
-                      for (final tone in DisputeTone.values)
-                        ChoiceChip(
-                          label: Text(tone.label),
-                          selected: disputeState.tone == tone,
-                          showCheckmark: false,
-                          onSelected: isGenerating
-                              ? null
-                              : (_) => notifier.switchTone(tone),
-                          selectedColor: AppColors.skyBg,
-                          backgroundColor: AppColors.background,
-                          side: BorderSide(
-                            color: disputeState.tone == tone
-                                ? AppColors.sky
-                                : AppColors.borderSubtle,
-                          ),
-                          labelStyle: TextStyle(
-                            fontFamily: AppTypography.fontFamilySans,
-                            fontSize: 11,
-                            fontWeight: disputeState.tone == tone
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: disputeState.tone == tone
-                                ? AppColors.sky
-                                : AppColors.textPrimary,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                    ],
+                  Text(
+                    'TONE:',
+                    style: AppTypography.labelMicro.copyWith(
+                      color: isDark
+                          ? AppColors.textMuted
+                          : AppColors.textSecondaryLight,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: AppSpacing.sm,
-                    runSpacing: 6,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: isAiBusy ? null : notifier.regenerateWithAi,
-                        icon: isAiBusy
-                            ? const SizedBox(
-                                width: 13,
-                                height: 13,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.auto_awesome_outlined, size: 15),
-                        label: Text(isAiBusy ? 'AI Refining...' : 'Regenerate'),
+                  for (final tone in DisputeTone.values)
+                    ChoiceChip(
+                      label: Text(tone.label),
+                      selected: disputeState.tone == tone,
+                      showCheckmark: false,
+                      onSelected: isGenerating
+                          ? null
+                          : (_) => notifier.switchTone(tone),
+                      selectedColor: isDark
+                          ? AppColors.skyBg
+                          : AppColors.brandAccent.withValues(alpha: 0.15),
+                      backgroundColor: isDark
+                          ? AppColors.background
+                          : AppColors.surfacePrimaryLight,
+                      side: BorderSide(
+                        color: disputeState.tone == tone
+                            ? (isDark ? AppColors.sky : AppColors.brandAccent)
+                            : (isDark
+                                ? AppColors.borderSubtle
+                                : AppColors.borderSubtleLight),
                       ),
-                      OutlinedButton.icon(
-                        onPressed:
-                            hasDraftText && !isAiBusy ? _copyToClipboard : null,
-                        icon: const Icon(Icons.copy_rounded, size: 14),
-                        label: const Text('Copy to Clipboard'),
+                      labelStyle: TextStyle(
+                        fontFamily: AppTypography.fontFamilySans,
+                        fontSize: 11.5,
+                        fontWeight: disputeState.tone == tone
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: disputeState.tone == tone
+                            ? (isDark ? AppColors.sky : AppColors.brandAccentDark)
+                            : (isDark
+                                ? AppColors.textPrimary
+                                : AppColors.textPrimaryLight),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: (!hasDraftText ||
-                                isAiBusy ||
-                                disputeState.isExportingPdf)
-                            ? null
-                            : _exportPdf,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.emerald,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: disputeState.isExportingPdf
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.picture_as_pdf_outlined,
-                                size: 15,
-                              ),
-                        label: Text(
-                          disputeState.isExportingPdf
-                              ? 'Exporting...'
-                              : 'Export PDF',
-                        ),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed:
-                            hasDraftText && !isAiBusy ? _openDispatchDialog : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.brandAccent,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.send_rounded, size: 14),
-                        label: const Text('Dispatch Notice'),
-                      ),
-                    ],
-                  ),
+                      visualDensity: VisualDensity.compact,
+                    ),
                 ],
+              ),
+            ),
+
+            // Action Buttons Toolbar (Responsive Multi-Row Grid for Mobile)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.surfaceCard
+                    : AppColors.surfacePrimaryLight,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark
+                        ? AppColors.borderSubtle
+                        : AppColors.borderSubtleLight,
+                  ),
+                ),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 620;
+
+                  final regenerateBtn = OutlinedButton.icon(
+                    onPressed: isAiBusy ? null : notifier.regenerateWithAi,
+                    icon: isAiBusy
+                        ? const SizedBox(
+                            width: 13,
+                            height: 13,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_awesome_outlined, size: 14),
+                    label: Text(isAiBusy ? 'AI Refining...' : 'Regenerate'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark
+                          ? AppColors.textPrimary
+                          : AppColors.textPrimaryLight,
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderSubtle
+                            : AppColors.borderSubtleLight,
+                      ),
+                      minimumSize: const Size(120, 38),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                  );
+
+                  final copyBtn = OutlinedButton.icon(
+                    onPressed:
+                        hasDraftText && !isAiBusy ? _copyToClipboard : null,
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: const Text('Copy to Clipboard'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark
+                          ? AppColors.textPrimary
+                          : AppColors.textPrimaryLight,
+                      side: BorderSide(
+                        color: isDark
+                            ? AppColors.borderSubtle
+                            : AppColors.borderSubtleLight,
+                      ),
+                      minimumSize: const Size(120, 38),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                  );
+
+                  final exportBtn = ElevatedButton.icon(
+                    onPressed: (!hasDraftText ||
+                            isAiBusy ||
+                            disputeState.isExportingPdf)
+                        ? null
+                        : _exportPdf,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.emerald,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(120, 38),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    icon: disputeState.isExportingPdf
+                        ? const SizedBox(
+                            width: 13,
+                            height: 13,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.picture_as_pdf_outlined,
+                            size: 14,
+                          ),
+                    label: Text(
+                      disputeState.isExportingPdf
+                          ? 'Exporting...'
+                          : 'Export PDF',
+                    ),
+                  );
+
+                  final dispatchBtn = ElevatedButton.icon(
+                    onPressed:
+                        hasDraftText && !isAiBusy ? _openDispatchDialog : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.brandAccent,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(120, 38),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 14),
+                    label: const Text('Dispatch Notice'),
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: regenerateBtn),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(child: copyBtn),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.xs + 2),
+                        Row(
+                          children: [
+                            Expanded(child: exportBtn),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(child: dispatchBtn),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      regenerateBtn,
+                      const SizedBox(width: AppSpacing.sm),
+                      copyBtn,
+                      const Spacer(),
+                      exportBtn,
+                      const SizedBox(width: AppSpacing.sm),
+                      dispatchBtn,
+                    ],
+                  );
+                },
               ),
             ),
 
             // Financial Summary Ribbon
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompactViewport ? AppSpacing.md : AppSpacing.lg,
                 vertical: 8,
               ),
-              decoration: const BoxDecoration(
-                color: AppColors.background,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.surfaceElevate
+                    : AppColors.surfaceSecondaryLight,
                 border: Border(
-                  bottom: BorderSide(color: AppColors.borderSubtle),
+                  bottom: BorderSide(color: borderColor),
                 ),
               ),
-              child: Row(
+              child: Wrap(
+                spacing: AppSpacing.lg,
+                runSpacing: 6,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Text(
-                    'Stated Invoiced: ',
-                    style: AppTypography.bodySmall,
-                  ),
-                  Text(invoicedStr, style: AppTypography.monoValue),
-                  const SizedBox(width: AppSpacing.lg),
-                  const Text(
-                    'Approved Release: ',
-                    style: AppTypography.bodySmall,
-                  ),
-                  Text(
-                    approvedStr,
-                    style: AppTypography.monoValue.copyWith(
-                      color: AppColors.emerald,
-                    ),
-                  ),
-                  const Spacer(),
-                  const Icon(
-                    Icons.schedule_outlined,
-                    size: 13,
-                    color: AppColors.amber,
-                  ),
-                  const SizedBox(width: 4),
-                  const Flexible(
-                    child: Text(
-                      'Rectification Deadline: 14 Business Days',
-                      style: TextStyle(
-                        fontFamily: AppTypography.fontFamilySans,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.amber,
+                  Wrap(
+                    spacing: isCompactViewport ? AppSpacing.md : AppSpacing.lg,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (isCompactViewport)
+                        Text.rich(
+                          TextSpan(
+                            text: 'Withheld: ',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondaryOf(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: withheldStr,
+                                style: AppTypography.monoValue.copyWith(
+                                  color: AppColors.crimson,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      Text.rich(
+                        TextSpan(
+                          text: 'Stated Invoiced: ',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: invoicedStr,
+                              style: AppTypography.monoValue.copyWith(
+                                color: AppColors.textPrimaryOf(context),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      Text.rich(
+                        TextSpan(
+                          text: 'Approved Release: ',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.textSecondaryOf(context),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: approvedStr,
+                              style: AppTypography.monoValue.copyWith(
+                                color: isDark
+                                    ? AppColors.emerald
+                                    : const Color(0xFF047857),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.schedule_outlined,
+                        size: 13,
+                        color: isDark ? AppColors.amber : const Color(0xFFB45309),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Rectification Deadline: 14 Business Days',
+                          style: TextStyle(
+                            fontFamily: AppTypography.fontFamilySans,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.amber : const Color(0xFFB45309),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -581,18 +820,24 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
             // Main Editable Monospace Draft Canvas with Inline AI Overlay
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                padding: EdgeInsets.all(
+                  isCompactViewport ? AppSpacing.md : AppSpacing.lg,
+                ),
                 child: Stack(
                   children: [
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
                       decoration: BoxDecoration(
-                        color: AppColors.background,
+                        color: isDark
+                            ? AppColors.background
+                            : AppColors.surfacePrimaryLight,
                         borderRadius: BorderRadius.circular(AppRadius.md),
                         border: Border.all(
                           color: _isEditorFocused
-                              ? AppColors.sky.withValues(alpha: 0.65)
-                              : AppColors.borderSubtle,
+                              ? (isDark
+                                  ? AppColors.sky.withValues(alpha: 0.65)
+                                  : AppColors.brandAccent)
+                              : borderColor,
                         ),
                       ),
                       child: TextField(
@@ -605,18 +850,20 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
                           _lastSyncedDraftText = value;
                           notifier.updateDraftText(value);
                         },
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: AppTypography.fontFamilyMono,
                           fontSize: 12.5,
                           height: 1.55,
-                          color: AppColors.textPrimary,
+                          color: AppColors.textPrimaryOf(context),
                         ),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.all(AppSpacing.md),
+                          contentPadding: const EdgeInsets.all(AppSpacing.md),
                           hintText:
                               'Dispute notice draft will appear here...',
-                          hintStyle: TextStyle(color: AppColors.textSecondary),
+                          hintStyle: TextStyle(
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
                       ),
                     ),
@@ -624,40 +871,52 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
                       Positioned.fill(
                         child: Container(
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceCard.withValues(alpha: 0.97),
+                            color: (isDark
+                                    ? AppColors.surfaceCard
+                                    : AppColors.surfacePrimaryLight)
+                                .withValues(alpha: 0.97),
                             borderRadius: BorderRadius.circular(AppRadius.md),
                             border: Border.all(
                               color: AppColors.sky.withValues(alpha: 0.45),
                             ),
                           ),
                           child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const CircularProgressIndicator(
-                                  color: AppColors.sky,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                Text(
-                                  'Refining ${disputeState.tone.label} notice with AI...',
-                                  style: AppTypography.titleSmall,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Attempting ${ApiConstants.defaultGeminiModelDisplayName} / Groq fast engine (8s timeout).',
-                                  style: AppTypography.bodySmall,
-                                ),
-                                const SizedBox(height: AppSpacing.md),
-                                TextButton.icon(
-                                  onPressed: notifier.cancelAiRefine,
-                                  icon: const Icon(
-                                    Icons.flash_on_rounded,
-                                    size: 15,
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const CircularProgressIndicator(
+                                    color: AppColors.sky,
                                   ),
-                                  label:
-                                      const Text('Use Instant Local Draft'),
-                                ),
-                              ],
+                                  const SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    'Refining ${disputeState.tone.label} notice with AI...',
+                                    style: AppTypography.titleSmall.copyWith(
+                                      color: AppColors.textPrimaryOf(context),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Attempting ${ApiConstants.defaultGeminiModelDisplayName} / Groq fast engine (8s timeout).',
+                                    style: AppTypography.bodySmall.copyWith(
+                                      color: AppColors.textSecondaryOf(context),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  TextButton.icon(
+                                    onPressed: notifier.cancelAiRefine,
+                                    icon: const Icon(
+                                      Icons.flash_on_rounded,
+                                      size: 15,
+                                    ),
+                                    label:
+                                        const Text('Use Instant Local Draft'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -666,8 +925,40 @@ class _DisputeStudioModalState extends ConsumerState<DisputeStudioModal> {
                 ),
               ),
             ),
-              ],
-            ),
+        ],
+      );
+
+    if (widget.isFullScreen) {
+      return ScaffoldMessenger(
+        key: _messengerKey,
+        child: Scaffold(
+          backgroundColor: AppColors.surfaceBackgroundOf(context),
+          body: SafeArea(
+            child: bodyContent,
+          ),
+        ),
+      );
+    }
+
+    return Dialog(
+      backgroundColor: AppColors.surfaceCardOf(context),
+      insetPadding: isCompactViewport
+          ? const EdgeInsets.all(AppSpacing.sm + 4)
+          : const EdgeInsets.all(AppSpacing.xl),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: borderColor),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 1020,
+          maxHeight: 740,
+        ),
+        child: ScaffoldMessenger(
+          key: _messengerKey,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: bodyContent,
           ),
         ),
       ),

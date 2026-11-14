@@ -3,9 +3,22 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 
+/// Responsive modal inset padding that preserves desktop breathing room while
+/// avoiding cramped horizontal space on compact mobile screens.
+EdgeInsets responsiveDialogInsetPadding(BuildContext context) {
+  final width = MediaQuery.sizeOf(context).width;
+  if (width < AppBreakpoints.compactPhone) {
+    return const EdgeInsets.symmetric(horizontal: 12, vertical: 16);
+  }
+  return const EdgeInsets.symmetric(horizontal: 40, vertical: 24);
+}
+
 /// Shared high-contrast slate border color used across modal cards, fields,
 /// headers, and footers on dark enterprise surfaces.
 const Color enterpriseModalBorderColor = Color(0xFF475569);
+
+Color enterpriseBorderColor(BuildContext context) =>
+    AppColors.isDark(context) ? enterpriseModalBorderColor : AppColors.borderSubtleLight;
 
 /// Shared enterprise modal header with elevated background, icon badge, title,
 /// subtitle, and optional close button.
@@ -29,18 +42,30 @@ class EnterpriseDialogHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    final borderColor =
+        isDark ? enterpriseModalBorderColor : AppColors.borderSubtleLight;
+    final bgColor =
+        isDark ? AppColors.surfaceElevate : AppColors.surfaceSecondaryLight;
+    final titleColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+    final subtitleColor = isDark
+        ? Colors.white.withValues(alpha: 0.94)
+        : AppColors.textSecondaryLight;
+    final closeBtnColor =
+        isDark ? Colors.white : AppColors.textSecondaryLight;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceElevate,
-        borderRadius: BorderRadius.vertical(
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppRadius.lg),
         ),
         border: Border(
-          bottom: BorderSide(color: enterpriseModalBorderColor),
+          bottom: BorderSide(color: borderColor),
         ),
       ),
       child: Row(
@@ -65,7 +90,7 @@ class EnterpriseDialogHeader extends StatelessWidget {
                   style: AppTypography.titleSmall.copyWith(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: titleColor,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -76,7 +101,7 @@ class EnterpriseDialogHeader extends StatelessWidget {
                   style: AppTypography.bodySmall.copyWith(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.94),
+                    color: subtitleColor,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
@@ -89,7 +114,7 @@ class EnterpriseDialogHeader extends StatelessWidget {
             icon: const Icon(Icons.close_rounded, size: 18),
             tooltip: closeTooltip,
             splashRadius: 16,
-            color: Colors.white,
+            color: closeBtnColor,
           ),
         ],
       ),
@@ -113,12 +138,20 @@ class EnterpriseSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    final borderColor =
+        isDark ? enterpriseModalBorderColor : AppColors.borderSubtleLight;
+    final bgColor = isDark
+        ? AppColors.surfaceElevate.withValues(alpha: 0.48)
+        : AppColors.surfacePrimaryLight;
+    final titleColor = isDark ? Colors.white : AppColors.textPrimaryLight;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceElevate.withValues(alpha: 0.48),
+        color: bgColor,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: enterpriseModalBorderColor),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -130,7 +163,7 @@ class EnterpriseSectionCard extends StatelessWidget {
                   sectionTitle,
                   style: AppTypography.labelMicro.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: titleColor,
                     letterSpacing: 0.85,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -139,7 +172,14 @@ class EnterpriseSectionCard extends StatelessWidget {
               ),
               if (trailing != null) ...[
                 const SizedBox(width: AppSpacing.xs),
-                trailing!,
+                Flexible(
+                  flex: 0,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: trailing!,
+                  ),
+                ),
               ],
             ],
           ),
@@ -201,17 +241,33 @@ class EnterpriseFeedbackBanner extends StatelessWidget {
 /// dispatch modals.
 InputDecoration buildEnterpriseFieldDecoration(
   String label, {
+  BuildContext? context,
   String? hint,
   IconData? prefixIcon,
   Widget? suffixIcon,
   BoxConstraints? suffixIconConstraints,
 }) {
+  final isLight =
+      context != null && !AppColors.isDark(context);
+  final borderColor =
+      isLight ? AppColors.borderSubtleLight : enterpriseModalBorderColor;
+  final fillColor =
+      isLight ? AppColors.surfacePrimaryLight : AppColors.background;
+  final labelColor =
+      isLight ? AppColors.textSecondaryLight : AppColors.textPrimary;
+  final floatingLabelColor =
+      isLight ? AppColors.brandAccentDark : Colors.white;
+  final hintColor = isLight
+      ? AppColors.textMuted
+      : AppColors.textPrimary.withValues(alpha: 0.78);
+  final iconColor = isLight ? AppColors.textSecondaryLight : Colors.white;
+
   return InputDecoration(
     labelText: label,
     hintText: hint,
     prefixIcon: prefixIcon == null
         ? null
-        : Icon(prefixIcon, size: 15, color: Colors.white),
+        : Icon(prefixIcon, size: 15, color: iconColor),
     prefixIconConstraints: prefixIcon == null
         ? null
         : const BoxConstraints(minWidth: 34, minHeight: 34),
@@ -219,20 +275,20 @@ InputDecoration buildEnterpriseFieldDecoration(
     suffixIconConstraints: suffixIconConstraints,
     labelStyle: AppTypography.bodySmall.copyWith(
       fontSize: 12,
-      color: AppColors.textPrimary,
+      color: labelColor,
       fontWeight: FontWeight.w600,
     ),
     floatingLabelStyle: AppTypography.bodySmall.copyWith(
       fontSize: 12,
-      color: Colors.white,
+      color: floatingLabelColor,
       fontWeight: FontWeight.w600,
     ),
     hintStyle: AppTypography.bodySmall.copyWith(
       fontSize: 12,
-      color: AppColors.textPrimary.withValues(alpha: 0.78),
+      color: hintColor,
     ),
     filled: true,
-    fillColor: AppColors.background,
+    fillColor: fillColor,
     isDense: true,
     contentPadding: const EdgeInsets.symmetric(
       horizontal: AppSpacing.sm + 4,
@@ -240,11 +296,11 @@ InputDecoration buildEnterpriseFieldDecoration(
     ),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      borderSide: const BorderSide(color: enterpriseModalBorderColor),
+      borderSide: BorderSide(color: borderColor),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppRadius.sm),
-      borderSide: const BorderSide(color: enterpriseModalBorderColor),
+      borderSide: BorderSide(color: borderColor),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(AppRadius.sm),

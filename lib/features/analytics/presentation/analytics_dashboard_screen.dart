@@ -13,7 +13,12 @@ import '../providers/analytics_provider.dart';
 /// Dedicated full-screen financial analytics and savings recovery dashboard
 /// driven dynamically from local `clairdocs_vault.db` audit records.
 class AnalyticsDashboardScreen extends ConsumerStatefulWidget {
-  const AnalyticsDashboardScreen({super.key});
+  final bool showBackButton;
+
+  const AnalyticsDashboardScreen({
+    super.key,
+    this.showBackButton = true,
+  });
 
   @override
   ConsumerState<AnalyticsDashboardScreen> createState() =>
@@ -53,72 +58,119 @@ class _AnalyticsDashboardScreenState
     final analyticsAsync = ref.watch(auditAnalyticsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.surfaceBackgroundOf(context),
       body: SafeArea(
         child: Column(
           children: [
             // Header Command Strip
-            Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              decoration: const BoxDecoration(
-                color: AppColors.surfaceCard,
-                border: Border(
-                  bottom: BorderSide(color: AppColors.borderSubtle),
-                ),
-              ),
-              child: Row(
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 15),
-                    label: const Text('Back to Workbench'),
+            LayoutBuilder(
+              builder: (context, headerConstraints) {
+                final isCompactHeader =
+                    headerConstraints.maxWidth < AppBreakpoints.compactPhone;
+                return Container(
+                  height: 56,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isCompactHeader ? AppSpacing.sm + 4 : AppSpacing.lg,
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: AppColors.emeraldBg,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: AppColors.emerald.withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.insights_rounded,
-                      size: 16,
-                      color: AppColors.emerald,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceCardOf(context),
+                    border: Border(
+                      bottom: BorderSide(color: AppColors.borderSubtleOf(context)),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  const Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Analytics & Savings Dashboard',
-                          style: AppTypography.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          'Financial recovery metrics & vendor risk intelligence from clairdocs_vault.db',
-                          style: AppTypography.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      if (widget.showBackButton) ...[
+                        if (isCompactHeader)
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                            tooltip: 'Back to Workbench',
+                            color: AppColors.textPrimaryOf(context),
+                          )
+                        else
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.arrow_back_rounded, size: 15),
+                            label: const Text('Back to Workbench'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimaryOf(context),
+                              side: BorderSide(
+                                color: AppColors.borderSubtleOf(context),
+                              ),
+                            ),
+                          ),
+                        SizedBox(
+                          width: isCompactHeader ? AppSpacing.xs : AppSpacing.md,
                         ),
                       ],
-                    ),
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: AppColors.emeraldBg,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(
+                            color: AppColors.emerald.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.insights_rounded,
+                          size: 16,
+                          color: AppColors.emerald,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Analytics & Savings Dashboard',
+                              style: AppTypography.titleMedium.copyWith(
+                                color: AppColors.textPrimaryOf(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Financial recovery metrics & vendor risk intelligence from clairdocs_vault.db',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textSecondaryOf(context),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isCompactHeader)
+                        IconButton(
+                          onPressed: () =>
+                              ref.read(auditHistoryProvider.notifier).refresh(),
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          tooltip: 'Refresh',
+                          color: AppColors.textPrimaryOf(context),
+                        )
+                      else
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              ref.read(auditHistoryProvider.notifier).refresh(),
+                          icon: const Icon(Icons.refresh_rounded, size: 15),
+                          label: const Text('Refresh'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.textPrimaryOf(context),
+                            side: BorderSide(
+                              color: AppColors.borderSubtleOf(context),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        ref.read(auditHistoryProvider.notifier).refresh(),
-                    icon: const Icon(Icons.refresh_rounded, size: 15),
-                    label: const Text('Refresh'),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
 
             // Dashboard Body
@@ -202,9 +254,9 @@ class _AnalyticsDashboardScreenState
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
-            color: AppColors.surfaceCard,
+            color: AppColors.surfaceCardOf(context),
             borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: AppColors.borderSubtle),
+            border: Border.all(color: AppColors.borderSubtleOf(context)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -212,14 +264,14 @@ class _AnalyticsDashboardScreenState
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceElevate,
+                  color: AppColors.surfaceElevateOf(context),
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.borderSubtle),
+                  border: Border.all(color: AppColors.borderSubtleOf(context)),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.bar_chart_rounded,
                   size: 32,
-                  color: AppColors.textMuted,
+                  color: AppColors.textMutedOf(context),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -320,9 +372,9 @@ class _AnalyticsDashboardScreenState
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
+        color: AppColors.surfaceCardOf(context),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,21 +431,21 @@ class _AnalyticsDashboardScreenState
                         show: true,
                         drawVerticalLine: false,
                         horizontalInterval: maxY / 4,
-                        getDrawingHorizontalLine: (_) => const FlLine(
-                          color: AppColors.borderSubtle,
+                        getDrawingHorizontalLine: (_) => FlLine(
+                          color: AppColors.borderSubtleOf(context),
                           strokeWidth: 1,
                         ),
                       ),
                       borderData: FlBorderData(
                         show: true,
-                        border: const Border(
-                          bottom: BorderSide(color: AppColors.borderSubtle),
-                          left: BorderSide(color: AppColors.borderSubtle),
+                        border: Border(
+                          bottom: BorderSide(color: AppColors.borderSubtleOf(context)),
+                          left: BorderSide(color: AppColors.borderSubtleOf(context)),
                         ),
                       ),
                       barTouchData: BarTouchData(
                         touchTooltipData: BarTouchTooltipData(
-                          getTooltipColor: (_) => AppColors.surfaceElevate,
+                          getTooltipColor: (_) => AppColors.surfaceElevateOf(context),
                           tooltipRoundedRadius: 6,
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
                             final v = vendors[groupIndex];
@@ -401,8 +453,8 @@ class _AnalyticsDashboardScreenState
                                 CurrencyFormatter.formatUsd(v.totalVariance);
                             return BarTooltipItem(
                               '${v.vendorName}\n',
-                              const TextStyle(
-                                color: AppColors.textPrimary,
+                              TextStyle(
+                                color: AppColors.textPrimaryOf(context),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 11,
                               ),
@@ -478,8 +530,8 @@ class _AnalyticsDashboardScreenState
                                   style: AppTypography.bodySmall.copyWith(
                                     fontSize: 10.5,
                                     color: _touchedBarIndex == idx
-                                        ? AppColors.textPrimary
-                                        : AppColors.textSecondary,
+                                        ? AppColors.textPrimaryOf(context)
+                                        : AppColors.textSecondaryOf(context),
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -537,9 +589,9 @@ class _AnalyticsDashboardScreenState
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
+        color: AppColors.surfaceCardOf(context),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,8 +724,8 @@ class _AnalyticsDashboardScreenState
                             categories[i].label,
                             style: AppTypography.bodySmall.copyWith(
                               color: _touchedPieIndex == i
-                                  ? AppColors.textPrimary
-                                  : AppColors.textSecondary,
+                                  ? AppColors.textPrimaryOf(context)
+                                  : AppColors.textSecondaryOf(context),
                               fontWeight: _touchedPieIndex == i
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -686,7 +738,7 @@ class _AnalyticsDashboardScreenState
                         Text(
                           '${CurrencyFormatter.formatUsd(categories[i].amount)}  (${categories[i].percentage.toStringAsFixed(1)}%)',
                           style: AppTypography.monoCitation.copyWith(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textPrimaryOf(context),
                           ),
                         ),
                       ],
@@ -723,9 +775,9 @@ class _AnalyticsKpiCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
+        color: AppColors.surfaceCardOf(context),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
+        border: Border.all(color: AppColors.borderSubtleOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -268,22 +268,25 @@ class _ContractViewerPanelState extends ConsumerState<ContractViewerPanel> {
     final is91Active = activeSection == '9.1';
     final is123Active = activeSection == '12.3';
 
-    return Container(
-      margin: const EdgeInsets.all(AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.borderSubtle),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 12,
-            offset: Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < AppBreakpoints.compactPhone;
+        return Container(
+          margin: EdgeInsets.all(isCompact ? AppSpacing.sm : AppSpacing.md),
+          padding: EdgeInsets.all(isCompact ? AppSpacing.md : AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceCard,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.borderSubtle),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: ListView(
+          child: ListView(
         children: [
           Center(
             child: Column(
@@ -479,7 +482,9 @@ class _ContractViewerPanelState extends ConsumerState<ContractViewerPanel> {
             ),
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

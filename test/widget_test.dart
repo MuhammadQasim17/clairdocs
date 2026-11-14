@@ -31,6 +31,7 @@ import 'package:clairdocs/core/widgets/word_document_preview.dart';
 import 'package:clairdocs/features/analytics/models/analytics_summary.dart';
 import 'package:clairdocs/features/analytics/presentation/analytics_dashboard_screen.dart';
 import 'package:clairdocs/features/audit/models/audit_models.dart';
+import 'package:clairdocs/features/audit/presentation/widgets/action_studio_panel.dart';
 import 'package:clairdocs/features/audit/presentation/widgets/api_key_dialog.dart';
 import 'package:clairdocs/features/audit/presentation/widgets/discrepancy_item_card.dart';
 import 'package:clairdocs/features/audit/presentation/widgets/document_viewer_pane.dart';
@@ -45,6 +46,7 @@ import 'package:clairdocs/features/contracts/presentation/widgets/contract_viewe
 import 'package:clairdocs/features/contracts/providers/contract_providers.dart';
 import 'package:clairdocs/features/disputes/models/dispute_models.dart';
 import 'package:clairdocs/features/disputes/presentation/widgets/dispatch_notice_dialog.dart';
+import 'package:clairdocs/features/disputes/presentation/widgets/dispute_studio_modal.dart';
 import 'package:clairdocs/features/disputes/providers/dispute_provider.dart';
 import 'package:clairdocs/features/disputes/services/dispute_dispatch_service.dart';
 import 'package:clairdocs/features/disputes/services/dispute_generator_service.dart';
@@ -2249,7 +2251,7 @@ Invoice #: INV-2026-889
         Size(1920, 1080),
         Size(1280, 720),
         Size(960, 640),
-        Size(800, 560),
+        Size(900, 600),
       ]) {
         final capturedErrors = <FlutterErrorDetails>[];
         final prevOnError = FlutterError.onError;
@@ -2647,7 +2649,7 @@ Invoice #: INV-2026-889
       );
 
       // Clear saved SMTP credentials
-      await tester.tap(find.text('Clear'));
+      await tester.tap(find.text('Clear').first);
       await tester.pumpAndSettle();
       expect(
         find.text('Saved SMTP credentials cleared from Store Room.'),
@@ -3502,8 +3504,9 @@ Invoice #: INV-2026-889
         matching: find.byType(TextField),
       );
       await tester.enterText(groqField, 'gsk_settings_saved_456');
-      await tester.ensureVisible(find.text('Save Groq Key'));
-      await tester.tap(find.text('Save Groq Key'));
+      final groqSaveBtn = find.widgetWithText(ElevatedButton, 'Save Key').last;
+      await tester.ensureVisible(groqSaveBtn);
+      await tester.tap(groqSaveBtn);
       await tester.pumpAndSettle();
 
       expect(
@@ -3511,6 +3514,327 @@ Invoice #: INV-2026-889
         findsOneWidget,
       );
       expect(await storage.getGroqApiKey(), equals('gsk_settings_saved_456'));
+    },
+  );
+
+  testWidgets(
+    'AuditWorkbenchScreen switches between 3-column desktop (>=900px) and mobile NavigationBar (<900px) without overflow',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final capturedErrors = <FlutterErrorDetails>[];
+      Future<void> runWithoutFlutterErrors(Future<void> Function() body) async {
+        final prevOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedErrors.add(details);
+        };
+        try {
+          await body();
+        } finally {
+          FlutterError.onError = prevOnError;
+        }
+        expect(
+          capturedErrors,
+          isEmpty,
+          reason: capturedErrors.map((e) => e.toString()).join('\n---\n'),
+        );
+      }
+
+      tester.view.physicalSize = const Size(1280, 720);
+      final testVaultDb = _InMemoryAuditDatabaseService();
+      await runWithoutFlutterErrors(() async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              geminiAuditServiceProvider.overrideWithValue(
+                _OfflineMockAuditService(),
+              ),
+              groqAuditServiceProvider.overrideWithValue(
+                _OfflineMockGroqService(),
+              ),
+              auditDatabaseServiceProvider.overrideWithValue(testVaultDb),
+            ],
+            child: const ClairDocsApp(),
+          ),
+        );
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+      });
+
+      // Desktop (>= 900px): all 3 panes side-by-side, no mobile NavigationBar
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(ContractViewerPanel), findsOneWidget);
+      expect(find.byType(InvoiceViewerPanel), findsOneWidget);
+      expect(find.byType(ActionStudioPanel), findsOneWidget);
+
+      // Collapse to mobile (< 900px) at 390x844 and 360x780
+      for (final mobileSize in const [Size(390, 844), Size(360, 780)]) {
+        await runWithoutFlutterErrors(() async {
+          tester.view.physicalSize = mobileSize;
+          await tester.pumpAndSettle();
+        });
+
+        expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.text('• Awaiting Documents'), findsOneWidget);
+        expect(find.text('Governing Contract'), findsOneWidget);
+        expect(find.text('Vendor Invoice'), findsOneWidget);
+        expect(find.text('Run AI Audit'), findsOneWidget);
+        expect(find.text('Home'), findsOneWidget);
+        expect(find.text('Audit Vault'), findsOneWidget);
+        expect(find.text('Analytics'), findsOneWidget);
+        expect(find.text('Settings'), findsOneWidget);
+        expect(find.text('About'), findsNothing);
+      }
+
+      // Activate Demo Sample directly on both cards on the unified setup screen (no tab switching needed)
+      await runWithoutFlutterErrors(() async {
+        final demoButtons = find.text('Demo Sample');
+        expect(demoButtons, findsNWidgets(2));
+        await tester.tap(demoButtons.first);
+        await tester.pumpAndSettle();
+      });
+      expect(find.text('Master_Services_Agreement_2026.pdf'), findsOneWidget);
+
+      await runWithoutFlutterErrors(() async {
+        final demoButtons = find.text('Demo Sample');
+        expect(demoButtons, findsOneWidget);
+        await tester.tap(demoButtons.first);
+        await tester.pumpAndSettle();
+      });
+      expect(find.text('Apex_Tech_Invoice_INV-2026-889.pdf'), findsOneWidget);
+      expect(find.text('• Ready for Audit'), findsOneWidget);
+
+      // Run AI audit directly from the unified screen
+      await runWithoutFlutterErrors(() async {
+        await tester.ensureVisible(find.text('Run AI Audit'));
+        await tester.tap(find.text('Run AI Audit'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1300));
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+      });
+      expect(find.text('• 3 Discrepancies Detected'), findsOneWidget);
+      expect(find.text('TOTAL DISPUTED VARIANCE'), findsOneWidget);
+      expect(find.text('Draft Dispute Notice'), findsOneWidget);
+
+      // Open DisputeStudioModal on 360x780 mobile viewport and confirm zero overflow
+      await runWithoutFlutterErrors(() async {
+        await tester.ensureVisible(find.text('Draft Dispute Notice'));
+        await tester.tap(find.text('Draft Dispute Notice'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(DisputeStudioModal), findsOneWidget);
+
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.byTooltip('Close Studio'));
+        await tester.pumpAndSettle();
+      });
+
+      // Pop back from MobileAuditResultsScreen to Home setup screen
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.byTooltip('Back to Setup'));
+        await tester.pumpAndSettle();
+      });
+
+      // Verify the 4 bottom navigation destinations (all full-screen tabs):
+      // 1. Audit Vault
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Audit Vault'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(AuditVaultDialog), findsOneWidget);
+      expect(find.text('Audit Vault & History'), findsOneWidget);
+
+      // 2. Analytics
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Analytics'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(AnalyticsDashboardScreen), findsOneWidget);
+      expect(find.text('Analytics & Savings Dashboard'), findsOneWidget);
+
+      // 3. Settings (includes theme options)
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Settings'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(SettingsDialog), findsOneWidget);
+      expect(find.text('APPLICATION THEME'), findsOneWidget);
+      expect(find.text('Dark (Default)'), findsOneWidget);
+      expect(find.text('Light'), findsOneWidget);
+      expect(find.text('System'), findsOneWidget);
+
+      // 4. Return to Home
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Home'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.text('Governing Contract'), findsOneWidget);
+      expect(find.text('Vendor Invoice'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Mobile dialogs, modals, and AnalyticsDashboardScreen render without overflow on 360x780 viewport',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 780);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      FlutterSecureStorage.setMockInitialValues({});
+      addTearDown(() => FlutterSecureStorage.setMockInitialValues({}));
+
+      final capturedErrors = <FlutterErrorDetails>[];
+      Future<void> runWithoutFlutterErrors(Future<void> Function() body) async {
+        final prevOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          capturedErrors.add(details);
+        };
+        try {
+          await body();
+        } finally {
+          FlutterError.onError = prevOnError;
+        }
+        expect(
+          capturedErrors,
+          isEmpty,
+          reason: capturedErrors.map((e) => e.toString()).join('\n---\n'),
+        );
+      }
+
+      final testVaultDb = _InMemoryAuditDatabaseService();
+      await testVaultDb.saveAuditRecord(
+        AuditRecord(
+          id: 'mobile-vault-1',
+          timestamp: '2026-11-12T10:00:00.000Z',
+          contractName: 'Apex_Master_Services_Agreement_2026.pdf',
+          invoiceName: 'APEX_Invoice_INV_2026_889.pdf',
+          vendorName: 'Apex Technologies Inc.',
+          invoicedTotal: 48250.0,
+          contractBase: 43400.0,
+          totalVariance: 4850.0,
+          findingsJson: jsonEncode(
+            AuditResult.demoSample().findings.map((f) => f.toJson()).toList(),
+          ),
+          noticeText: 'Stored notice draft.',
+        ),
+      );
+
+      final sampleDispute = DisputeState(
+        vendorName: 'Apex Technologies Inc.',
+        vendorEmail: 'billing@apextech.io',
+        clientName: 'GlobalFin Corp',
+        invoiceReference: 'INV-2026-889',
+        contractReference: 'MSA-2026-APEX',
+        totalInvoiced: 48250.0,
+        approvedPayment: 43400.0,
+        totalWithheld: 4850.0,
+        draftText: 'Formal dispute notice draft body.',
+        sourceAuditResult: AuditResult.demoSample(),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            geminiAuditServiceProvider.overrideWithValue(
+              _OfflineMockAuditService(),
+            ),
+            groqAuditServiceProvider.overrideWithValue(
+              _OfflineMockGroqService(),
+            ),
+            auditDatabaseServiceProvider.overrideWithValue(testVaultDb),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: ListView(
+                  children: [
+                    TextButton(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => const SettingsDialog(),
+                      ),
+                      child: const Text('Open Settings'),
+                    ),
+                    TextButton(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => const ApiKeyDialog(),
+                      ),
+                      child: const Text('Open ApiKey'),
+                    ),
+                    TextButton(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => const AuditVaultDialog(),
+                      ),
+                      child: const Text('Open Vault'),
+                    ),
+                    TextButton(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => DispatchNoticeDialog(
+                          disputeState: sampleDispute,
+                          noticeText: sampleDispute.draftText,
+                        ),
+                      ),
+                      child: const Text('Open Dispatch'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AnalyticsDashboardScreen(),
+                        ),
+                      ),
+                      child: const Text('Open Analytics'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> openAndCloseDialog(String trigger, Type dialogType) async {
+        await runWithoutFlutterErrors(() async {
+          await tester.tap(find.text(trigger));
+          await tester.pumpAndSettle();
+        });
+        expect(find.byType(dialogType), findsOneWidget);
+        await runWithoutFlutterErrors(() async {
+          Navigator.of(tester.element(find.byType(dialogType))).pop();
+          await tester.pumpAndSettle();
+        });
+      }
+
+      await openAndCloseDialog('Open Settings', SettingsDialog);
+      await openAndCloseDialog('Open ApiKey', ApiKeyDialog);
+      await openAndCloseDialog('Open Vault', AuditVaultDialog);
+
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Open Dispatch'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(DispatchNoticeDialog), findsOneWidget);
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Post to Webhook'));
+        await tester.pumpAndSettle();
+        Navigator.of(tester.element(find.byType(DispatchNoticeDialog))).pop();
+        await tester.pumpAndSettle();
+      });
+
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.text('Open Analytics'));
+        await tester.pumpAndSettle();
+      });
+      expect(find.byType(AnalyticsDashboardScreen), findsOneWidget);
+      await runWithoutFlutterErrors(() async {
+        await tester.tap(find.byTooltip('Back to Workbench'));
+        await tester.pumpAndSettle();
+      });
     },
   );
 }

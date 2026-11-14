@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 import '../models/audit_record.dart';
@@ -25,17 +26,20 @@ class AuditDatabaseService {
 
   static Future<void> _ensurePlatformFactory() async {
     // Initialize sqlite3_flutter_libs runtime hook before opening any FFI DB.
-    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-    if (Platform.isWindows || Platform.isLinux) {
-      if (!_ffiInitialized) {
-        if (Platform.isWindows) {
-          _preloadBundledWindowsSqlite();
-        }
-        sqfliteFfiInit();
-        _ffiInitialized = true;
+    try {
+      if (Platform.isAndroid) {
+        await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
       }
-      databaseFactory = databaseFactoryFfi;
+    } catch (_) {}
+
+    if (!_ffiInitialized) {
+      if (Platform.isWindows) {
+        _preloadBundledWindowsSqlite();
+      }
+      sqfliteFfiInit();
+      _ffiInitialized = true;
     }
+    databaseFactory = databaseFactoryFfi;
   }
 
   /// Ensures the `sqlite3.dll` bundled by `sqlite3_flutter_libs` next to the
@@ -72,6 +76,19 @@ class AuditDatabaseService {
           await vaultDir.create(recursive: true);
         }
         return p.join(vaultDir.path, databaseFileName);
+      }
+    }
+
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      try {
+        final appDir = await getApplicationDocumentsDirectory();
+        final vaultDir = Directory(p.join(appDir.path, 'databases'));
+        if (!await vaultDir.exists()) {
+          await vaultDir.create(recursive: true);
+        }
+        return p.join(vaultDir.path, databaseFileName);
+      } catch (_) {
+        // Fall through to getDatabasesPath()
       }
     }
 
@@ -144,12 +161,16 @@ class AuditDatabaseService {
   }
 
   Future<List<AuditRecord>> fetchAllAudits() async {
-    final db = await _getDatabase();
-    final rows = await db.query(
-      auditsTable,
-      orderBy: 'timestamp DESC',
-    );
-    return rows.map(AuditRecord.fromMap).toList(growable: false);
+    try {
+      final db = await _getDatabase();
+      final rows = await db.query(
+        auditsTable,
+        orderBy: 'timestamp DESC',
+      );
+      return rows.map(AuditRecord.fromMap).toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> deleteAuditRecord(String id) async {

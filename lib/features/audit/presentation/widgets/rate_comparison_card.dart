@@ -118,20 +118,26 @@ class RateComparisonCard extends StatelessWidget {
                     children: [
                       const Text('Agreed Cap', style: AppTypography.labelMicro),
                       const SizedBox(height: 2),
-                      Text(
-                        agreedStr,
-                        style: AppTypography.monoValue.copyWith(
-                          color: AppColors.emerald,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          agreedStr,
+                          style: AppTypography.monoValue.copyWith(
+                            color: AppColors.emerald,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: AppColors.textMuted,
-                  size: 12,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: AppColors.textMuted,
+                    size: 12,
+                  ),
                 ),
                 Expanded(
                   child: Column(
@@ -139,27 +145,33 @@ class RateComparisonCard extends StatelessWidget {
                     children: [
                       const Text('Billed Rate', style: AppTypography.labelMicro),
                       const SizedBox(height: 2),
-                      Text(
-                        billedStr,
-                        style: AppTypography.monoValue.copyWith(
-                          color: AppColors.crimson,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          billedStr,
+                          style: AppTypography.monoValue.copyWith(
+                            color: AppColors.crimson,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.crimsonBg,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  child: Text(
-                    deltaStr,
-                    style: AppTypography.monoBadge.copyWith(
-                      color: AppColors.crimson,
+                Flexible(
+                  flex: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.crimsonBg,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                    child: Text(
+                      deltaStr,
+                      style: AppTypography.monoBadge.copyWith(
+                        color: AppColors.crimson,
+                      ),
                     ),
                   ),
                 ),

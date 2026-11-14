@@ -19,3 +19,14 @@ class AppRadius {
   static const double pill = 999.0;
 }
 
+class AppBreakpoints {
+  AppBreakpoints._();
+
+  /// Width threshold separating Mobile single-column (< 800px) from Desktop
+  /// multi-column workspace layout (>= 800px).
+  static const double desktop = 800.0;
+
+  /// Width threshold for compact phone headers, stacked form fields, and dialogs.
+  static const double compactPhone = 600.0;
+}
+

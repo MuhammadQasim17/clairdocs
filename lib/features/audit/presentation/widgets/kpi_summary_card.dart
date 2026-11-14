@@ -75,10 +75,14 @@ class KpiSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            formattedVariance,
-            style: AppTypography.monoMetricLarge.copyWith(
-              color: varianceColor,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formattedVariance,
+              style: AppTypography.monoMetricLarge.copyWith(
+                color: varianceColor,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),

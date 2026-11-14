@@ -18,7 +18,12 @@ import 'rate_comparison_card.dart';
 import 'discrepancy_item_card.dart';
 
 class ActionStudioPanel extends ConsumerWidget {
-  const ActionStudioPanel({super.key});
+  final bool showLeftBorder;
+
+  const ActionStudioPanel({
+    super.key,
+    this.showLeftBorder = true,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,11 +46,13 @@ class ActionStudioPanel extends ConsumerWidget {
         : rawEngineLabel.toUpperCase();
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surfaceCard,
-        border: Border(
-          left: BorderSide(color: AppColors.borderSubtle),
-        ),
+        border: showLeftBorder
+            ? const Border(
+                left: BorderSide(color: AppColors.borderSubtle),
+              )
+            : null,
       ),
       child: Column(
         children: [
